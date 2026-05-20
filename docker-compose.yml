@@ -1,0 +1,69 @@
+services:
+  # -------------------------------------------------------------------
+  # SERVICE 1: Analytical PostgreSQL Storage Layer
+  # -------------------------------------------------------------------
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: usgs_postgres_container
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Bound to localhost only — not exposed to the public network interface.
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------------------------------------------------
+  # SERVICE 2: USGS Data Pipeline (runs every 6 hours via internal cron)
+  # -------------------------------------------------------------------
+  data_pipeline:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: usgs_pipeline_runner
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - MIN_MAGNITUDE=${MIN_MAGNITUDE:-2.5}
+      - LOOKBACK_DAYS=${LOOKBACK_DAYS:-1}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+
+  # -------------------------------------------------------------------
+  # SERVICE 3: Metabase BI Dashboard
+  # -------------------------------------------------------------------
+  metabase:
+    image: metabase/metabase:v0.52.6
+    platform: linux/amd64   # Metabase has no ARM image; Rosetta 2 handles emulation on Apple Silicon
+    container_name: usgs_metabase_dashboard
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - metabase_data:/metabase-data
+    environment:
+      - MB_DB_FILE=/metabase-data/metabase.db
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+
+# -------------------------------------------------------------------
+# VOLUMES: Persistent storage
+# -------------------------------------------------------------------
+volumes:
+  pgdata:
+  metabase_data:
