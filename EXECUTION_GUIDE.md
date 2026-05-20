@@ -482,13 +482,13 @@ docker exec usgs_pipeline_runner cat /var/log/cron.log
 4. Click **Add New Webhook to Workspace** → select your `#alerts` or `#engineering` channel
 5. Copy the webhook URL — it looks like:
    ```
-   https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
+   https://slack.com
    ```
 
 ### Step 2 — Add the webhook to `.env`
 
 ```dotenv
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
+https://slack.com
 ```
 
 ### Step 3 — Restart the pipeline container to pick up the new value
